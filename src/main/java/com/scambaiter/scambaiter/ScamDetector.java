@@ -1,8 +1,8 @@
 package com.scambaiter.scambaiter;
-
+import org.springframework.stereotype.Service;
 import java.util.Arrays;
 import java.util.List;
-
+@Service
 public class ScamDetector {
 
     private static final List<String> CRYPTO_KEYWORDS = Arrays.asList(
