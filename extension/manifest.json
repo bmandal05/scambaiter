@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "ScamBaiter",
+  "version": "1.0",
+  "description": "Detects WhatsApp scams and baits them back",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "css": ["popup.css"]
+    }
+  ]
+}
