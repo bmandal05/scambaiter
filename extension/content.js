@@ -1,6 +1,7 @@
 let lastMessage = "";
 let isAutobaiting = false;
-let baitingInterval = null;
+let selectedVoice = "grandma";
+let currentScamType = "crypto";
 
 console.log("ScamBaiter loaded!");
 
@@ -14,9 +15,8 @@ const observer = new MutationObserver(() => {
   lastMessage = latest;
 
   if (isAutobaiting) {
-    // Already in auto mode — just reply automatically
     console.log("Auto-baiting reply to:", latest);
-    setTimeout(() => sendReply(latest), randomDelay());
+    setTimeout(() => sendAutoReply(latest), randomDelay());
   } else {
     checkForScam(latest);
   }
@@ -26,8 +26,8 @@ observer.observe(document.body, { childList: true, subtree: true });
 
 function checkForScam(message) {
   chrome.runtime.sendMessage({ type: "ANALYZE", message: message }, (response) => {
-    console.log("Backend response:", response);
     if (response && response.success && response.data.scam) {
+      currentScamType = response.data.scamType;
       showPopup(message, response.data.scamType);
     }
   });
@@ -40,23 +40,39 @@ function showPopup(message, scamType) {
   const popup = document.createElement("div");
   popup.id = "scambaiter-popup";
   popup.innerHTML = `
-    <p>🚨 <b>Scam detected!</b> (${scamType})</p>
-    <p style="font-size:12px;color:#aaa;">"${message.substring(0, 60)}..."</p>
-    <button id="btn-auto">🤖 Auto-bait them!</button>
-    <button id="btn-once">✅ Reply once</button>
-    <button id="btn-no">❌ Ignore</button>
+    <div class="sb-header">
+      <span>🛡️</span>
+      <span class="sb-title">Scam Detected</span>
+      <span class="sb-badge">${scamType}</span>
+    </div>
+    <div class="sb-message">"${message.substring(0, 80)}..."</div>
+    <div class="sb-voice-label">Choose a voice</div>
+    <select id="voice-select">
+      <option value="grandma">👵 Confused Grandma</option>
+      <option value="child">👦 Excited Child</option>
+      <option value="man">👨 Suspicious Man</option>
+      <option value="woman">👩 Chatty Woman</option>
+      <option value="nerd">🤓 Tech Nerd</option>
+    </select>
+    <div class="sb-buttons">
+      <button id="btn-auto">🤖 Auto-bait</button>
+      <button id="btn-once">✅ Once</button>
+      <button id="btn-no">❌ Ignore</button>
+    </div>
   `;
   document.body.appendChild(popup);
 
   document.getElementById("btn-auto").onclick = () => {
+    selectedVoice = document.getElementById("voice-select").value;
     isAutobaiting = true;
     showAutoBaitingBadge();
-    sendReply(message);
+    sendAutoReply(message);
     popup.remove();
   };
 
   document.getElementById("btn-once").onclick = () => {
-    sendReply(message);
+    selectedVoice = document.getElementById("voice-select").value;
+    sendAutoReply(message);
     popup.remove();
   };
 
@@ -72,7 +88,7 @@ function showAutoBaitingBadge() {
   const badge = document.createElement("div");
   badge.id = "scambaiter-badge";
   badge.innerHTML = `
-    <span>🤖 Auto-baiting active</span>
+    <span>🤖 Auto-baiting as ${selectedVoice}</span>
     <button id="btn-stop">Stop</button>
   `;
   badge.style.cssText = `
@@ -107,12 +123,15 @@ function showAutoBaitingBadge() {
   document.getElementById("btn-stop").onclick = () => {
     isAutobaiting = false;
     badge.remove();
-    console.log("Auto-baiting stopped.");
   };
 }
 
-function sendReply(message) {
-  chrome.runtime.sendMessage({ type: "REPLY", message: message }, (response) => {
+function sendAutoReply(message) {
+  chrome.runtime.sendMessage({
+    type: "AUTOREPLY",
+    message: message,
+    voice: selectedVoice
+  }, (response) => {
     if (response && response.success) {
       typeReply(response.data);
     }
@@ -133,7 +152,6 @@ function typeReply(text) {
   }, 500);
 }
 
-// Random delay between 8-20 seconds so it feels human
 function randomDelay() {
   return Math.floor(Math.random() * 12000) + 8000;
 }

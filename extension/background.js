@@ -1,14 +1,4 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-
-  console.log("Received message:", request);
-
-  if (request.type === "TEST") {
-    sendResponse({ status: "working" });
-    return true;
-  }
-
-});
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "ANALYZE") {
     fetch("http://localhost:8080/analyze", {
       method: "POST",
@@ -21,11 +11,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.type === "REPLY") {
-    fetch("http://localhost:8080/reply", {
+  if (request.type === "AUTOREPLY") {
+    fetch("http://localhost:8080/autoreply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: request.message })
+      body: JSON.stringify({ message: request.message, voice: request.voice })
     })
     .then(res => res.text())
     .then(data => sendResponse({ success: true, data }))
