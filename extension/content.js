@@ -158,9 +158,19 @@ function showAutoBaitingBadge() {
 
   document.getElementById("btn-stop").onclick = () => {
     isAutobaiting = false;
+  
+  // Save conversation log
+    const chatName = document.querySelector('[data-testid="conversation-header"] span')?.innerText || "default";
+    const sessionId = chatName.replace(/\s+/g, '_').toLowerCase();
+  
+    chrome.runtime.sendMessage({ 
+      type: "STOP", 
+      sessionId: sessionId 
+    });
+  
     badge.remove();
-  };
-}
+   };
+ }
 
 function sendAutoReply(message) {
   const chatName = document.querySelector('[data-testid="conversation-header"] span')?.innerText || "default";

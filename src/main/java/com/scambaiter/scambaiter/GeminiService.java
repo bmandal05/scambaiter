@@ -30,6 +30,8 @@ public class GeminiService {
         try {
             String persona = personaEngine.getPersonaPrompt(scamType, voice);
             String history = conversationMemory.getHistory(sessionId);
+            System.out.println("SessionId received: " + sessionId);
+            System.out.println("History: " + history);
 
             String prompt = persona
                 + "\n\nConversation history so far:\n" + history
@@ -66,7 +68,11 @@ public class GeminiService {
             JsonObject responseJson = JsonParser.parseString(response.body()).getAsJsonObject();
 
             if (responseJson.has("error")) {
-                return getFallbackReply(voice);
+                String fallback = getFallbackReply(voice);
+                // Save to memory even on quota error
+                conversationMemory.addScammerMessage(sessionId, scammerMessage);
+                conversationMemory.addOurReply(sessionId, fallback);
+                return fallback;
             }
 
             String reply = responseJson
@@ -86,7 +92,11 @@ public class GeminiService {
 
         } catch (Exception e) {
             System.out.println("Gemini error: " + e.getMessage());
-            return getFallbackReply(voice);
+            String fallback = getFallbackReply(voice);
+            // Save to memory even on exception
+            conversationMemory.addScammerMessage(sessionId, scammerMessage);
+            conversationMemory.addOurReply(sessionId, fallback);
+            return fallback;
         }
     }
 
