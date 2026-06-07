@@ -3,6 +3,7 @@ package com.scambaiter.scambaiter;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,13 +18,23 @@ public class GeminiService {
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    private final PersonaEngine personaEngine = new PersonaEngine();
+    @Autowired
+    private PersonaEngine personaEngine;
+
+    @Autowired
+    private ConversationMemory conversationMemory;
+
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public String generateReply(String scammerMessage, String scamType, String voice) {
+    public String generateReply(String scammerMessage, String scamType, String voice, String sessionId) {
         try {
-            String prompt = personaEngine.getPersonaPrompt(scamType, voice)
-                + "\n\nThe scammer just sent you: \"" + scammerMessage + "\"\n\nReply naturally, stay in character. One short WhatsApp message only.";
+            String persona = personaEngine.getPersonaPrompt(scamType, voice);
+            String history = conversationMemory.getHistory(sessionId);
+
+            String prompt = persona
+                + "\n\nConversation history so far:\n" + history
+                + "\n\nThe scammer just sent: \"" + scammerMessage + "\""
+                + "\n\nReply naturally, stay in character, never repeat yourself. One short WhatsApp message only.";
 
             JsonObject textPart = new JsonObject();
             textPart.addProperty("text", prompt);
@@ -54,19 +65,24 @@ public class GeminiService {
 
             JsonObject responseJson = JsonParser.parseString(response.body()).getAsJsonObject();
 
-            // Handle error response
             if (responseJson.has("error")) {
-                String errorMsg = responseJson.getAsJsonObject("error").get("message").getAsString();
                 return getFallbackReply(voice);
             }
 
-            return responseJson
+            String reply = responseJson
                 .getAsJsonArray("candidates")
                 .get(0).getAsJsonObject()
                 .getAsJsonObject("content")
                 .getAsJsonArray("parts")
                 .get(0).getAsJsonObject()
-                .get("text").getAsString();
+                .get("text").getAsString()
+                .trim();
+
+            // Save to memory
+            conversationMemory.addScammerMessage(sessionId, scammerMessage);
+            conversationMemory.addOurReply(sessionId, reply);
+
+            return reply;
 
         } catch (Exception e) {
             System.out.println("Gemini error: " + e.getMessage());

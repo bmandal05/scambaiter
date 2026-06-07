@@ -15,7 +15,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch("http://localhost:8080/autoreply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: request.message, voice: request.voice })
+      body: JSON.stringify({
+        message: request.message,
+        voice: request.voice,
+        sessionId: request.sessionId
+      })
     })
     .then(res => res.text())
     .then(data => sendResponse({ success: true, data }))

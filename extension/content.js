@@ -6,11 +6,29 @@ let currentScamType = "crypto";
 console.log("ScamBaiter loaded!");
 
 const observer = new MutationObserver(() => {
-  const containers = document.querySelectorAll('.message-in [data-testid="msg-container"]');
-  if (containers.length === 0) return;
+  const allContainers = document.querySelectorAll('[data-testid="msg-container"]');
+  if (allContainers.length === 0) return;
 
-  const latest = containers[containers.length - 1].innerText.split('\n')[0];
+  const incomingMessages = Array.from(allContainers).filter(el =>
+    !el.parentElement.className.includes('xuk3077')
+  );
+
+  if (incomingMessages.length === 0) return;
+
+  const latest = incomingMessages[incomingMessages.length - 1].innerText.split('\n')[0];
+  console.log("Latest incoming:", latest);
+
   if (!latest || latest === lastMessage) return;
+
+  if (latest.startsWith('http') || latest.startsWith('www')) {
+    lastMessage = latest;
+    return;
+  }
+
+  if (latest.length > 300) {
+    lastMessage = latest;
+    return;
+  }
 
   lastMessage = latest;
 
@@ -24,11 +42,28 @@ const observer = new MutationObserver(() => {
 
 observer.observe(document.body, { childList: true, subtree: true });
 
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const allContainers = document.querySelectorAll('[data-testid="msg-container"]');
+    const incomingMessages = Array.from(allContainers).filter(el =>
+      !el.parentElement.className.includes('xuk3077')
+    );
+    if (incomingMessages.length > 0) {
+      lastMessage = incomingMessages[incomingMessages.length - 1].innerText.split('\n')[0];
+      console.log("ScamBaiter initialized, watching after:", lastMessage.substring(0, 40));
+    }
+  }, 3000);
+});
+
 function checkForScam(message) {
+  console.log("Checking for scam:", message);
   chrome.runtime.sendMessage({ type: "ANALYZE", message: message }, (response) => {
+    console.log("Full backend response:", JSON.stringify(response));
     if (response && response.success && response.data.scam) {
       currentScamType = response.data.scamType;
       showPopup(message, response.data.scamType);
+    } else {
+      console.log("No scam - data:", JSON.stringify(response?.data));
     }
   });
 }
@@ -95,29 +130,30 @@ function showAutoBaitingBadge() {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: #25d366;
+    background: linear-gradient(135deg, #25d366, #128c7e);
     color: white;
-    padding: 8px 14px;
-    border-radius: 20px;
+    padding: 10px 16px;
+    border-radius: 25px;
     z-index: 99999;
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 13px;
-    font-weight: bold;
+    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(37,211,102,0.4);
   `;
   document.body.appendChild(badge);
 
   document.getElementById("btn-stop").style.cssText = `
-    background: white;
-    color: #25d366;
-    border: none;
-    border-radius: 10px;
-    padding: 3px 10px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 12px;
+    padding: 4px 12px;
     cursor: pointer;
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 600;
   `;
 
   document.getElementById("btn-stop").onclick = () => {
@@ -127,10 +163,14 @@ function showAutoBaitingBadge() {
 }
 
 function sendAutoReply(message) {
+  const chatName = document.querySelector('[data-testid="conversation-header"] span')?.innerText || "default";
+  const sessionId = chatName.replace(/\s+/g, '_').toLowerCase();
+
   chrome.runtime.sendMessage({
     type: "AUTOREPLY",
     message: message,
-    voice: selectedVoice
+    voice: selectedVoice,
+    sessionId: sessionId
   }, (response) => {
     if (response && response.success) {
       typeReply(response.data);
